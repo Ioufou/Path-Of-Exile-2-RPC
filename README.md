@@ -23,10 +23,11 @@ Download the latest release here:**
 ## 🔧 To-Do
 
 - [x] Support for custom images (all classes and ascendancies)
+- [x] Show AFK status
 - [ ] Launch as background service when game starts
 - [ ] Add support for the official PoE2 client
 - [ ] Detect the player who started the script (avoid party conflicts)
-- [ ] Show AFK status
+- [ ] Linux version
 
 ---
 
@@ -35,6 +36,7 @@ Download the latest release here:**
 
 - 💾 [adainrivers](https://github.com/adainrivers/poe2-data) — map data and resources  
 - 💻 [Miksuu](https://github.com/Miksuu) — code contributions
+- 💻 [ezbooz](https://github.com/ezbooz) — forked project
 
 ---
 
