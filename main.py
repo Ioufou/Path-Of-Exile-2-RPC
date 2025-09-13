@@ -116,6 +116,15 @@ def find_game_log():
         time.sleep(3)
 
 
+def get_poe2_start_time():
+    for process in psutil.process_iter(["name", "create_time"]):
+        if process.info.get("name") == "PathOfExileSteam.exe":
+            return int(process.info["create_time"])
+    return int(datetime.datetime.now().timestamp())
+
+APP_START_TIME = get_poe2_start_time()
+
+
 def random_status():
     statuses = [
         "Exploring ancient ruins",
@@ -223,6 +232,23 @@ def find_instance(
         }
     return None
 
+def find_afk(line: str, regex_afk: re.Pattern) -> Optional[bool]:
+    if match := regex_afk.search(line):
+        state = match.group(1).upper()
+        return state == "ON"
+    return None
+
+
+def get_details(level_info):
+    return (
+        f"{level_info['username']} - {level_info['base_class']}"
+        + (
+            f" {level_info['ascension_class']}"
+            if level_info["ascension_class"] != "Unknown"
+            else ""
+        )
+        + f" - Level {level_info['level']}"
+    )
 
 def rpc_connect():
     retries = 0
@@ -243,27 +269,31 @@ def rpc_connect():
     return None
 
 
-def update_rpc(level_info, instance_info=None, status=None):
-    if instance_info:
-        status = f"In: {instance_info['location_name']} (Lvl {instance_info['location_level']})"
-    else:
-        if status is None:
-            status = random_status()
-
+def update_rpc(level_info, instance_info=None, status=None, current_status=None):
     try:
-        details = (
-            f"{level_info['username']} ({level_info['base_class']}"
-            + (
-                f" | {level_info['ascension_class']}"
-                if level_info["ascension_class"] != "Unknown"
-                else ""
-            )
-            + f" - Lvl {level_info['level']})"
-        )
+        if current_status and current_status.get("afk_status", False):
+            now = time.time()
+            if now - current_status.get("last_switch_time", 0) > 3:
+                current_status["afk_toggle"] = not current_status.get("afk_toggle", False)
+                current_status["last_switch_time"] = now
+
+            if current_status.get("afk_toggle", False):
+                status = "💤 AFK mode enabled"
+            else:
+                if instance_info:
+                    status = f"In: {instance_info['location_name']} (Lvl {instance_info['location_level']})"
+                else:
+                    status = random_status()
+        else:
+            if instance_info:
+                status = f"In: {instance_info['location_name']} (Lvl {instance_info['location_level']})"
+            elif status is None:
+                status = random_status()
+
         rpc.update(
-            details=details,
+            details=get_details(level_info),
             state=status,
-            start=int(datetime.datetime.now().timestamp()),
+            start=APP_START_TIME,
             small_image=level_info["ascension_class"].lower().replace(" ", "_"),
         )
     except Exception as e:
@@ -272,7 +302,7 @@ def update_rpc(level_info, instance_info=None, status=None):
 
 regex_level = re.compile(r": (\w+) \(([\w\s]+)\) is now level (\d+)")
 regex_instance = re.compile(r'Generating level (\d+) area "([^"]+)" with seed (\d+)')
-
+regex_afk = re.compile(r": AFK mode is now (\w+)")
 
 def monitor_log():
     game_path = find_game_log()
@@ -282,45 +312,43 @@ def monitor_log():
 
     last_level_info = get_last_level_up(log_file_path, regex_level)
     if last_level_info:
-        details = (
-            f"{last_level_info['username']} ({last_level_info['base_class']}"
-            + (
-                f" | {last_level_info['ascension_class']}"
-                if last_level_info["ascension_class"] != "Unknown"
-                else ""
-            )
-            + f" - Lvl {last_level_info['level']})"
-        )
         rpc.update(
-            details=details,
+            details=get_details(last_level_info),
             state=random_status(),
-            start=int(datetime.datetime.now().timestamp()),
+            start=APP_START_TIME,
             small_image=last_level_info["ascension_class"].lower(),
         )
 
     with log_file_path.open("r", encoding="utf-8") as log_file:
         log_file.seek(0, 2)
 
-        current_status = {"level_info": last_level_info, "instance_info": None}
+        current_status = {"level_info": last_level_info, "instance_info": None, "afk_status": False, "afk_toggle": False, "last_switch_time": 0}
 
         while True:
             new_lines = log_file.readlines()
+            updated = False
+
             for line in new_lines:
                 level_info = find_last_level_up(line, regex_level)
-                if level_info and (
-                    not current_status["level_info"]
-                    or level_info != current_status["level_info"]
-                ):
+                if level_info and (level_info != current_status.get("level_info")):
                     current_status["level_info"] = level_info
-                    update_rpc(level_info, current_status["instance_info"])
+                    updated = True
 
                 instance_info = find_instance(line, regex_instance, locations)
-                if instance_info and (
-                    not current_status["instance_info"]
-                    or instance_info != current_status["instance_info"]
-                ):
+                if instance_info and (instance_info != current_status.get("instance_info")):
                     current_status["instance_info"] = instance_info
-                    update_rpc(current_status["level_info"], instance_info)
+                    updated = True
+
+                afk_state = find_afk(line, regex_afk)
+                if afk_state is not None:
+                    current_status["afk_status"] = afk_state
+                    updated = True
+
+            update_rpc(
+                current_status["level_info"],
+                current_status.get("instance_info"),
+                current_status=current_status
+            )
 
             time.sleep(5)
 
