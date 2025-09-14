@@ -37,6 +37,7 @@ Download the latest release here:**
 - 💾 [adainrivers](https://github.com/adainrivers/poe2-data) — map data and resources  
 - 💻 [Miksuu](https://github.com/Miksuu) — code contributions
 - 💻 [ezbooz](https://github.com/ezbooz) — forked project
+- 💻 [LouFou](https://github.com/ioufou) — code contributions
 
 ---
 

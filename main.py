@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+import sys
 import re
 import time
 from enum import Enum
@@ -115,6 +116,11 @@ def find_game_log():
             logging.error(f"Error accessing processes: {e}")
         time.sleep(3)
 
+def is_game_running():
+    for process in psutil.process_iter(["name"]):
+        if process.info.get("name") == "PathOfExileSteam.exe":
+            return True
+    return False
 
 def get_poe2_start_time():
     for process in psutil.process_iter(["name", "create_time"]):
@@ -325,6 +331,11 @@ def monitor_log():
         current_status = {"level_info": last_level_info, "instance_info": None, "afk_status": False, "afk_toggle": False, "last_switch_time": 0}
 
         while True:
+            if not is_game_running():
+                logging.info("Path of Exile 2 closed, exiting the script.")
+                rpc.close()
+                sys.exit(0)
+
             new_lines = log_file.readlines()
             updated = False
 
