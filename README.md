@@ -24,7 +24,8 @@ Download the latest release here:**
 
 - [x] Support for custom images (all classes and ascendancies)
 - [x] Show AFK status
-- [ ] Launch as background service when game starts
+- ~~[ ] Launch as background service when game starts~~ ⤵
+- [x] Auto-creation of a .exe to add to Steam (launch the game and RPC)
 - [ ] Add support for the official PoE2 client
 - [ ] Detect the player who started the script (avoid party conflicts)
 - [ ] Linux version
